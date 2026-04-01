@@ -1,11 +1,12 @@
 import AiChat from "@/components/ai";
-import TestButton from "@/components/test/testButton";
+import ToDoList from "@/components/to_do";
+
 
 export default function Home() {
   return (
-    <div>
+    <div className="pageMain">
       <AiChat />
-
+      <ToDoList />
     </div>
   );
 }

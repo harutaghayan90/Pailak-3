@@ -1,12 +1,11 @@
 'use client';
 
-import { testServerFucntion } from "./server";
 
 export default function TestButton() {
+  
   const handleClick = (e) => {
     // e.prventDfault();
 
-    testServerFucntion("calling server funciton ...");
   };
 
   return (

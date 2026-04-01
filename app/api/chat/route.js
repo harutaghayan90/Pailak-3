@@ -17,87 +17,78 @@ const logToConsoleTool = tool({
   },
 });
 const n8nWebhookTool = tool({
-  description: "Make a request to a webhook URL with a specific task name",
+  description:
+    "Make a request to a webhook URL to manage batches of goals/tasks or a specific calendar range.",
   inputSchema: z.object({
     collection: z
-      .string()
-      .describe(
-        "Database table name, available options are 'goals','tasks' and 'calendar'",
-      ),
+      .enum(["goals", "tasks", "events"])
+      .describe("Database table name."),
     action: z
-      .string()
+      .enum(["get", "create", "update", "delete"])
       .describe(
-        "Possible operations on database tables get, create, update and delete use carefully only when there is user confirmation for the action, otherwise this should not be used.",
+        "Operations: get, create, update, delete. Use only after confirmation.",
       ),
     data: z
       .object({
-        // Single item operations
-        goal: z
-          .object({
-            id: z.string().optional(),
-            status: z.enum(["open", "pending", "completed"]).optional(),
-            name: z.string().optional(),
-            daily_time_limit: z.string().optional(),
-            tasks: z.array(z.any()).optional(),
-          })
-          .optional(),
-        task: z
-          .object({
-            id: z.string().optional(),
-            status: z.enum(["open", "pending", "completed"]).optional(),
-            name: z.string().optional(),
-            start_time: z.string().optional(),
-            end_time: z.string().optional(),
-            goal_id: z.string().optional(),
-          })
-          .optional(),
-        calendar: z
-          .object({
-            start_time: z.string().optional(),
-            end_time: z.string().optional(),
-          })
-          .optional(),
-
-        // Batch operations
+        // Batch operations (Arrays)
         goals: z
           .array(
             z.object({
               id: z.string().optional(),
               status: z.enum(["open", "pending", "completed"]).optional(),
               name: z.string().optional(),
+              description: z
+                .string()
+                .optional()
+                .describe("Detailed description or notes for the goal."),
               daily_time_limit: z.string().optional(),
-              tasks: z.array(z.any()).optional(),
+              start_time: z.string().optional(),
+              end_time: z.string().optional(),
             }),
           )
           .optional(),
+
         tasks: z
           .array(
             z.object({
               id: z.string().optional(),
               status: z.enum(["open", "pending", "completed"]).optional(),
               name: z.string().optional(),
+              description: z
+                .string()
+                .optional()
+                .describe("Detailed description or notes for the task."),
               start_time: z.string().optional(),
               end_time: z.string().optional(),
               goal_id: z.string().optional(),
             }),
           )
           .optional(),
+        // Single object for calendar range
+        events: z
+          .array(
+            z.object({
+              id: z.string().optional(),
+              title: z.string().optional(),
+              description: z.string().optional().describe("ISO datetime WITH timezone, e.g. 2026-04-01T17:30:00+04:00"),
+              start_time: z.string().optional().describe("ISO datetime WITH timezone, e.g. 2026-04-01T18:30:00+04:00"),
+              end_time: z.string().optional(),
+            }),
+          )
+          .optional(),
       })
       .optional()
-      .describe("Additional data to send with the webhook request"),
+      .describe(
+        "Data payload. Goals and Tasks must be arrays; Calendar is an object.",
+      ),
   }),
   execute: async ({ collection, action, data = {} }) => {
     try {
       const url = N8N_WEBHOOK_URL;
-      console.log(
-        `======= WEBHOOK TOOL ====== Executing ${action} on ${collection} at ${url}`,
-      );
 
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           collection,
           action,
@@ -112,11 +103,6 @@ const n8nWebhookTool = tool({
       }
 
       const result = await response.json();
-      console.log(
-        `======= WEBHOOK TOOL ====== Response for ${action} on ${collection}:`,
-        result,
-      );
-
       return JSON.stringify({
         success: true,
         collection,
@@ -124,14 +110,8 @@ const n8nWebhookTool = tool({
         data: result,
       });
     } catch (error) {
-      console.error(
-        `======= WEBHOOK TOOL ====== Error executing ${action} on ${collection}:`,
-        error,
-      );
       return JSON.stringify({
         success: false,
-        collection,
-        action,
         error: error.message,
       });
     }

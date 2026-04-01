@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model goals {
+  id               String    @id @default(uuid())
+  description      String?
+  name             String
+  status           String?   @default("open") // Matches "open" from your object format
+  daily_time_limit Int? // Stored in minutes (e.g., 120)
+  start_time       DateTime?
+  end_time         DateTime?
+  created_at       DateTime? @default(now())
+  updated_at       DateTime? @updatedAt
+
+  // Relations
+  tasks tasks[]
+}
+
+model tasks {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  status      String?   @default("open")
+  duration    Int? // Task duration in minutes
+  start_time  DateTime? // Nullable until Phase 4 scheduling
+  end_time    DateTime? // Nullable until Phase 4 scheduling
+
+  // Relations
+  goal_id String
+  goal    goals  @relation(fields: [goal_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime? @default(now())
+  updated_at DateTime? @updatedAt
+}

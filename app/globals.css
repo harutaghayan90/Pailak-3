@@ -25,3 +25,13 @@ body {
     text-wrap: balance;
   }
 }
+
+.pageMain{
+  display: flex;
+}
+
+.toDoSection{
+  padding: 1.5rem;
+    width: 554px;
+    background: gray;
+}

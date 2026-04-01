@@ -70,9 +70,9 @@ const n8nWebhookTool = tool({
             z.object({
               id: z.string().optional(),
               title: z.string().optional(),
-              description: z.string().optional().describe("ISO datetime WITH timezone, e.g. 2026-04-01T17:30:00+04:00"),
+              description: z.string().optional(),
               start_time: z.string().optional().describe("ISO datetime WITH timezone, e.g. 2026-04-01T18:30:00+04:00"),
-              end_time: z.string().optional(),
+              end_time: z.string().optional().describe("ISO datetime WITH timezone, e.g. 2026-04-01T17:30:00+04:00"),
             }),
           )
           .optional(),

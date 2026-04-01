@@ -1,211 +1,238 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import {
+  CircleCheckBigIcon,
+  CircleIcon,
+  FolderKanban,
+  GoalIcon,
+  Loader2,
+} from "lucide-react";
 
-export default function ToDoList() {
-  const [goalBlocks, setGoalBlocks] = useState([]);
+export default function ToDoList({ refreshTasks }) {
+  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setLoading(true);
+  const requestData = async (body) => {
+    const res = await fetch("https://n8n.aghayan.space/webhook/chat2", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
 
-        const res = await fetch('https://n8n.aghayan.space/webhook/chat2', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ collection: 'tasks', action: 'get' }),
+    return res.json();
+  };
+
+  const toArray = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.tasks?.data)) return payload.tasks.data;
+    if (Array.isArray(payload?.goals?.data)) return payload.goals.data;
+    if (Array.isArray(payload?.requestedData)) return payload.requestedData;
+    if (Array.isArray(payload?.requested_data)) return payload.requested_data;
+    return [];
+  };
+
+  const getCreatedAtTime = (item) => {
+    const source = item?.json || item;
+    const raw = source?.created_at || source?.createdAt;
+    const time = raw ? new Date(raw).getTime() : 0;
+    return Number.isFinite(time) ? time : 0;
+  };
+
+  const sortByCreatedAtDesc = (list) =>
+    [...list].sort((a, b) => getCreatedAtTime(b) - getCreatedAtTime(a));
+
+  const handleTaskClick = async (task) => {
+    const nextStatus = task.status === "completed" ? "open" : "completed";
+    const updatedTask = { ...task, status: nextStatus };
+
+    // Optimistic UI update
+    setSections((prev) =>
+      prev.map((section) => ({
+        ...section,
+        tasks: section.tasks.map((t) =>
+          String(t?.id) === String(task?.id) ? updatedTask : t,
+        ),
+      })),
+    );
+
+    const body = {
+      collection: "tasks",
+      action: "update",
+      data: [updatedTask],
+      tasks: [updatedTask],
+    };
+
+    try {
+      await requestData(body);
+    } catch (error) {
+      console.error("Task update failed:", error);
+
+      // Rollback if request fails
+      setSections((prev) =>
+        prev.map((section) => ({
+          ...section,
+          tasks: section.tasks.map((t) =>
+            String(t?.id) === String(task?.id) ? task : t,
+          ),
+        })),
+      );
+    }
+  };
+
+  const loadTasksFromDb = async () => {
+    try {
+      setLoading(true);
+
+      const goalsPayload = await requestData({
+        collection: "goals",
+        action: "get",
+      });
+      const tasksPayload = await requestData({
+        collection: "tasks",
+        action: "get",
+      });
+
+      const goals = sortByCreatedAtDesc(toArray(goalsPayload));
+      const tasks = sortByCreatedAtDesc(toArray(tasksPayload));
+
+      const groupedTasks = tasks.reduce((acc, task) => {
+        const t = task?.json || task;
+        const key = String(t?.goal_id ?? t?.goalId ?? "ungrouped");
+
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(t);
+
+        return acc;
+      }, {});
+
+      const mappedGoals = goals.map((goal, index) => {
+        const g = goal?.json || goal;
+        const goalId = String(g?.id ?? `goal-${index}`);
+
+        return {
+          id: goalId,
+          name: g?.name || g?.title || `Goal ${index + 1}`,
+          tasks: sortByCreatedAtDesc(groupedTasks[goalId] || []),
+        };
+      });
+
+      const orphanTasks = sortByCreatedAtDesc(groupedTasks.ungrouped || []);
+      if (orphanTasks.length > 0) {
+        mappedGoals.push({
+          id: "ungrouped",
+          name: "No Goal",
+          tasks: orphanTasks,
         });
-
-        const payload = await res.json();
-        console.log("aaaaaaaaaaa", payload)
-        setGoalBlocks(toGoalBlocks(payload));
-      } catch (error) {
-        console.error(error);
-        setGoalBlocks([]);
-      } finally {
-        setLoading(false);
       }
-    };
 
-    fetchTasks();
-  }, []);
-
-  // Helper to get task name, unwrap if n8n-style
-  const taskName = (task) => {
-    const t = task?.json || task;
-    return t?.name || t?.title || t?.task || 'Untitled task';
+      setSections(mappedGoals);
+    } catch (error) {
+      console.error(error);
+      setSections([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Helper to get goal name
-  const goalName = (goal, fallback = 'No Goal') => goal?.name || goal?.title || goal?.goal || fallback;
-  const goalTitle = (goal) =>
-    goal?.title ||
-    goal?.name ||
-    goal?.description ||
-    goal?.goal_title ||
-    goal?.goalTitle ||
-    goal?.objective ||
-    '';
-
-  // Convert API payload into consistent array of goal blocks
-  const toGoalBlocks = (payload) => {
-    if (!payload) return [];
-
-    const allBlocks = [];
-
-    const addBlock = (goalValue, tasksValue, fallbackIndex = 0, explicitTitle = '') => {
-      const key = goalName(goalValue, `Goal ${fallbackIndex + 1}`);
-      allBlocks.push({
-        goal: key,
-        title: explicitTitle || goalTitle(goalValue),
-        tasks: Array.isArray(tasksValue) ? tasksValue.map((t) => ({ name: taskName(t) })) : [],
-      });
-    };
-
-    const collectGoalSections = (node, fallbackIndex = 0) => {
-      if (!node) return;
-
-      if (Array.isArray(node)) {
-        node.forEach((item, i) => collectGoalSections(item, i));
-        return;
-      }
-
-      const obj = node?.json || node;
-
-      if (obj?.goal && Array.isArray(obj?.tasks)) {
-        const key = typeof obj.goal === 'object' ? obj.goal : { goal: obj.goal };
-        const titleFromWrapper = goalTitle(obj);
-        addBlock(key, obj.tasks, fallbackIndex, titleFromWrapper);
-      }
-
-      if ((obj?.name || obj?.title || obj?.goal) && Array.isArray(obj?.tasks)) {
-        addBlock(obj, obj.tasks, fallbackIndex);
-      }
-
-      if (Array.isArray(obj?.goals)) {
-        obj.goals.forEach((g, i) => addBlock(g, g?.tasks, i));
-      }
-    };
-
-    // collect grouped sections from common top-level containers
-    collectGoalSections(payload?.requestedData || payload?.requested_data);
-    collectGoalSections(payload?.data);
-    collectGoalSections(payload);
-
-    // collect flat task lists and group them by goal
-    const lists = [];
-    if (Array.isArray(payload?.tasks?.data)) lists.push(payload.tasks.data);
-    if (Array.isArray(payload?.data)) lists.push(payload.data);
-    if (Array.isArray(payload)) lists.push(payload);
-
-    const grouped = new Map();
-    lists.forEach((list) => {
-      list.forEach((item) => {
-        const taskObj = item?.json || item;
-
-        // skip grouped goal objects in this stage
-        if (Array.isArray(taskObj?.tasks)) return;
-
-        const gName =
-          taskObj?.goal?.name ||
-          taskObj?.goal_name ||
-          taskObj?.goalName ||
-          taskObj?.goal ||
-          taskObj?.goal_id ||
-          'No Goal';
-
-        const gTitle =
-          taskObj?.goal?.title ||
-          taskObj?.goal?.name ||
-          taskObj?.goal_title ||
-          taskObj?.goalTitle ||
-          taskObj?.goal_description ||
-          taskObj?.goalDescription ||
-          taskObj?.objective ||
-          '';
-
-        if (!grouped.has(gName)) {
-          grouped.set(gName, { title: gTitle, tasks: [] });
-        } else if (!grouped.get(gName).title && gTitle) {
-          grouped.get(gName).title = gTitle;
-        }
-
-        grouped.get(gName).tasks.push({ name: taskName(taskObj) });
-      });
-    });
-
-    grouped.forEach((value, goal) => {
-      allBlocks.push({ goal: String(goal), title: value.title || '', tasks: value.tasks });
-    });
-
-    // merge same goal sections so all incoming data is shown per section
-    const merged = new Map();
-    allBlocks.forEach((block) => {
-      if (!merged.has(block.goal)) {
-        merged.set(block.goal, { title: block.title || '', tasks: [] });
-      }
-
-      const existing = merged.get(block.goal);
-      if (!existing.title && block.title) existing.title = block.title;
-      existing.tasks.push(...block.tasks);
-    });
-
-    return Array.from(merged.entries()).map(([goal, value]) => {
-      let title = value.title;
-      let tasks = value.tasks;
-
-      // If goal key is generic ("Goal 1") and title is missing, use first task as title.
-      if (!title && /^goal\s*\d+$/i.test(goal) && tasks.length > 0) {
-        title = tasks[0]?.name || '';
-        tasks = tasks.slice(1);
-      }
-
-      return {
-        goal,
-        title,
-        tasks,
-      };
-    });
-  };
+  useEffect(() => {
+    loadTasksFromDb();
+  }, [refreshTasks]);
 
   return (
-    <div className="toDoSection" style={{ padding: 16, background: '#f8fafc' }}>
-      <h2 style={{ margin: 0, marginBottom: 12 }}>Goals and Tasks</h2>
+    <div
+      className="toDoSection w-full h-full px-10 relative"
+      style={{
+        padding: 16,
+        background: "#f8fafc",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <h2
+        style={{
+          margin: 0,
+          marginBottom: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <FolderKanban size={18} /> Goals & Tasks
+      </h2>
 
-      {loading && <p>Requesting data...</p>}
-      {!loading && goalBlocks.length === 0 && <p>No goals or tasks</p>}
+      {loading && (
+        <div className="w-full h-60 flex justify-center items-center">
+          <Loader2 className="size-12 animate-spin" />
+        </div>
+      )}
 
-      {!loading &&
-        goalBlocks.map((block, i) => (
-          <div
-            key={`${block.goal}-${i}`}
-            style={{
-              border: '1px solid #e5e7eb',
-              borderRadius: 10,
-              background: '#fff',
-              padding: 12,
-              marginTop: 10,
-            }}
-          >
-            <h3 style={{ margin: 0 }}>{block.title || block.goal}</h3>
-            {block.title && block.title !== block.goal && (
-              <p style={{ margin: '2px 0 8px', color: '#6b7280', fontSize: 12 }}>{block.goal}</p>
-            )}
+      {!loading && sections.length === 0 && (
+        <p style={{ margin: 0 }}>No data</p>
+      )}
 
-            {block.tasks.length === 0 ? (
-              <p style={{ margin: 0, color: '#6b7280' }}>No tasks</p>
-            ) : (
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {block.tasks.map((t, idx) => (
-                  <li key={`${t.name}-${idx}`} style={{ marginBottom: 4 }}>
-                    {t.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
+      <div
+        style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 4 }}
+      >
+        {!loading &&
+          sections.map((section) => (
+            <div
+              key={section.id}
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: 10,
+                background: "#fff",
+                padding: 12,
+                marginTop: 10,
+              }}
+            >
+              <div className="flex mb-5 items-center gap-3">
+                <GoalIcon />
+                <h3 className="text-lg">{section.name}</h3>
+              </div>
+
+              {section.tasks.length === 0 ? (
+                <p style={{ margin: 0, color: "#64748b" }}>No tasks</p>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {section.tasks.map((task, index) => (
+                    <li
+                      key={task?.id || `${section.id}-${index}`}
+                      style={{ marginBottom: 6 }}
+                      className=""
+                    >
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                        className={`${task.status === "completed" ? "line-through" : ""} hover:scale-[101%] duration-200 cursor-pointer`}
+                      >
+                        <button
+                          onClick={() => {
+                            handleTaskClick(task);
+                          }}
+                          className=""
+                        >
+                          {task.status === "open" && (
+                            <CircleIcon className="size-6 text-gray-100" />
+                          )}
+                          {task.status === "completed" && (
+                            <CircleCheckBigIcon className="size-6 text-green-200" />
+                          )}
+                        </button>
+                        {task?.name || task?.title || "Untitled task"}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+      </div>
     </div>
   );
 }

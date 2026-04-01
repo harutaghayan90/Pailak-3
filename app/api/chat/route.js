@@ -41,7 +41,7 @@ const n8nWebhookTool = tool({
                 .string()
                 .optional()
                 .describe("Detailed description or notes for the goal."),
-              daily_time_limit: z.string().optional(),
+              daily_time_limit: z.int32().optional(),
               start_time: z.string().optional(),
               end_time: z.string().optional(),
             }),
@@ -71,8 +71,8 @@ const n8nWebhookTool = tool({
               id: z.string().optional(),
               title: z.string().optional(),
               description: z.string().optional(),
-              start_time: z.string().optional().describe("ISO datetime WITH timezone, e.g. 2026-04-01T18:30:00+04:00"),
-              end_time: z.string().optional().describe("ISO datetime WITH timezone, e.g. 2026-04-01T17:30:00+04:00"),
+              start_time: z.string().optional(),
+              end_time: z.string().optional(),
             }),
           )
           .optional(),

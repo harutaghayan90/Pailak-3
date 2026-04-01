@@ -8,7 +8,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 
-export default function AiAgent({ className, account, user }) {
+export default function AiAgent({
+  className,
+  account,
+  user,
+  onTask = () => {},
+}) {
   const { messages, status, sendMessage } = useChat();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
@@ -20,8 +25,9 @@ export default function AiAgent({ className, account, user }) {
   const padding = 40; // container padding (p-5 = 20px top + 20px bottom)
   const [isDisabled, setIsDisabled] = useState(false);
   const [inputHeight, setInputHeight] = useState(minHeight);
+  const lastTaskEventMessageIdRef = useRef("");
 
-//   console.log(messages);
+  //console.log(messages);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -93,6 +99,47 @@ export default function AiAgent({ className, account, user }) {
     }
   }, [status]);
 
+  const hasTaskCreationSignal = (message) => {
+    if (!message || message.role !== "assistant") return false;
+
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    const combinedText = parts
+      .filter((part) => part?.type === "text")
+      .map((part) => part?.text || "")
+      .join(" ")
+      .toLowerCase();
+
+    const textSignal =
+      /(task|tasks).{0,30}(created|added|saved|generated)/i.test(combinedText) ||
+      /(created|added|saved|generated).{0,30}(task|tasks)/i.test(combinedText);
+
+    const toolSignal = parts.some((part) => {
+      const type = String(part?.type || "").toLowerCase();
+      if (!type.includes("tool")) return false;
+
+      const content = JSON.stringify(part).toLowerCase();
+      return content.includes('"collection":"tasks"') && content.includes('"action":"create"');
+    });
+
+    return textSignal || toolSignal;
+  };
+
+  useEffect(() => {
+    if (status !== "ready" || messages.length === 0) return;
+
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+
+    if (!lastAssistantMessage?.id) return;
+    if (lastTaskEventMessageIdRef.current === lastAssistantMessage.id) return;
+
+    if (hasTaskCreationSignal(lastAssistantMessage)) {
+      lastTaskEventMessageIdRef.current = lastAssistantMessage.id;
+      onTask();
+    }
+  }, [messages, status, onTask]);
+
   // console.log('messages: ', status, messages);
 
   return (
@@ -100,11 +147,11 @@ export default function AiAgent({ className, account, user }) {
       className={cn(
         "chat-container relative  overflow-y-auto",
         "w-full h-[calc(100vh-70px)]",
-        "flex flex-col items-center",
+        "flex flex-col items-center py-5",
         className && className,
       )}
     >
-      <div className={`chat w-[1000px] h-full flex flex-col`}>
+      <div className={`chat w-full h-full px-3 flex flex-col`}>
         {/* messages */}
         <div
           ref={messagesContainerRef}
@@ -121,10 +168,7 @@ export default function AiAgent({ className, account, user }) {
           {messages.map((message, msgIndex) => (
             <div
               key={message.id}
-              className={cn(
-                "leading-loose w-full",
-                "flex flex-col gap-2",
-              )}
+              className={cn("leading-loose w-full", "flex flex-col gap-2")}
             >
               {/* <strong>{`${message.role}: `}</strong> */}
               {message.parts.map((part, index) => {
@@ -134,7 +178,12 @@ export default function AiAgent({ className, account, user }) {
                   return (
                     <div
                       key={index}
-                      className={cn("w-full flex", message.role === "user" ? "justify-end" : "justify-start")}
+                      className={cn(
+                        "w-full flex",
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start",
+                      )}
                     >
                       <div
                         className={cn(

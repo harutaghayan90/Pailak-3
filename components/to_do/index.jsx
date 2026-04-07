@@ -151,17 +151,26 @@ export default function ToDoList({ refreshTasks }) {
         flexDirection: "column",
       }}
     >
-      <h2
-        style={{
-          margin: 0,
-          marginBottom: 12,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        <FolderKanban size={18} /> Goals & Tasks
-      </h2>
+      <div className="title_section">
+        <h2
+          style={{
+            margin: 0,
+            marginTop: 5,
+            marginBottom: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <FolderKanban size={18} /> Goals & Tasks
+        </h2>
+
+        <div className="prompt_section">
+          <button className="prompt_button">
+            AI Prompt
+          </button>
+        </div>
+      </div>
 
       {loading && (
         <div className="w-full h-60 flex justify-center items-center">

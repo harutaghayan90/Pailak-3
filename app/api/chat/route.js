@@ -73,13 +73,14 @@ const n8nWebhookTool = tool({
               description: z.string().optional(),
               start_time: z.string().optional(),
               end_time: z.string().optional(),
+              task_id: z.string().optional(),
             }),
           )
           .optional(),
       })
       .optional()
       .describe(
-        "Data payload. Goals and Tasks must be arrays; Calendar is an object.",
+        "Data payload. Goals and Tasks must be arrays; Calendar is an object. ",
       ),
   }),
   execute: async ({ collection, action, data = {} }) => {

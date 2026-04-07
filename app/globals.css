@@ -17,7 +17,7 @@
 html, body{
   overflow:hidden;
 }
-
+  
 body {
   color: var(--foreground);
   background: var(--background);
@@ -34,4 +34,14 @@ body {
   display: flex;
 }
 
+.title_section{
+  display: flex;
+  justify-content: space-between;
+}
+
+.prompt_button{
+  background: #b8beef;
+  padding: 5px 15px;
+  border-radius: 15px;
+}
  

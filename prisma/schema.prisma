@@ -30,6 +30,7 @@ model tasks {
   duration    Int? // Task duration in minutes
   start_time  DateTime? // Nullable until Phase 4 scheduling
   end_time    DateTime? // Nullable until Phase 4 scheduling
+  calendar_id String? // Nullable until Calendar Event creation
 
   // Relations
   goal_id String
@@ -37,4 +38,10 @@ model tasks {
 
   created_at DateTime? @default(now())
   updated_at DateTime? @updatedAt
+}
+
+model prompt {
+  id     String @id @default(uuid())
+  name   String @unique
+  prompt String
 }

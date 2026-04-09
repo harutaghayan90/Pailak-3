@@ -13,6 +13,10 @@ export default function ToDoList({ refreshTasks }) {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Popup state
+  const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [promptText, setPromptText] = useState("");
+
   const requestData = async (body) => {
     const res = await fetch("https://n8n.aghayan.space/webhook/chat2", {
       method: "POST",
@@ -47,14 +51,13 @@ export default function ToDoList({ refreshTasks }) {
     const nextStatus = task.status === "completed" ? "open" : "completed";
     const updatedTask = { ...task, status: nextStatus };
 
-    // Optimistic UI update
     setSections((prev) =>
       prev.map((section) => ({
         ...section,
         tasks: section.tasks.map((t) =>
-          String(t?.id) === String(task?.id) ? updatedTask : t,
+          String(t?.id) === String(task?.id) ? updatedTask : t
         ),
-      })),
+      }))
     );
 
     const body = {
@@ -69,14 +72,13 @@ export default function ToDoList({ refreshTasks }) {
     } catch (error) {
       console.error("Task update failed:", error);
 
-      // Rollback if request fails
       setSections((prev) =>
         prev.map((section) => ({
           ...section,
           tasks: section.tasks.map((t) =>
-            String(t?.id) === String(task?.id) ? task : t,
+            String(t?.id) === String(task?.id) ? task : t
           ),
-        })),
+        }))
       );
     }
   };
@@ -140,6 +142,21 @@ export default function ToDoList({ refreshTasks }) {
     loadTasksFromDb();
   }, [refreshTasks]);
 
+  // ✅ Save prompt handler
+  const handleSavePrompt = async () => {
+    try {
+      await requestData({
+        action: "ai_prompt",
+        prompt: promptText,
+      });
+
+      setIsPromptOpen(false);
+      setPromptText("");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div
       className="toDoSection w-full h-full px-10 relative"
@@ -166,7 +183,10 @@ export default function ToDoList({ refreshTasks }) {
         </h2>
 
         <div className="prompt_section">
-          <button className="prompt_button">
+          <button
+            className="prompt_button"
+            onClick={() => setIsPromptOpen(true)}
+          >
             AI Prompt
           </button>
         </div>
@@ -210,7 +230,6 @@ export default function ToDoList({ refreshTasks }) {
                     <li
                       key={task?.id || `${section.id}-${index}`}
                       style={{ marginBottom: 6 }}
-                      className=""
                     >
                       <div
                         style={{
@@ -218,14 +237,11 @@ export default function ToDoList({ refreshTasks }) {
                           alignItems: "center",
                           gap: 6,
                         }}
-                        className={`${task.status === "completed" ? "line-through" : ""} hover:scale-[101%] duration-200 cursor-pointer`}
+                        className={`${
+                          task.status === "completed" ? "line-through" : ""
+                        } hover:scale-[101%] duration-200 cursor-pointer`}
                       >
-                        <button
-                          onClick={() => {
-                            handleTaskClick(task);
-                          }}
-                          className=""
-                        >
+                        <button onClick={() => handleTaskClick(task)}>
                           {task.status === "open" && (
                             <CircleIcon className="size-6 text-gray-100" />
                           )}
@@ -242,6 +258,82 @@ export default function ToDoList({ refreshTasks }) {
             </div>
           ))}
       </div>
+
+      {/* ✅ POPUP */}
+      {isPromptOpen && (
+        <div
+          onClick={() => setIsPromptOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "60%",
+              height: "90vh",
+              background: "#fff",
+              borderRadius: 12,
+              padding: 20,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <h3>AI Prompt</h3>
+              <button onClick={() => setIsPromptOpen(false)}>✕</button>
+            </div>
+
+            {/* Content */}
+            <div style={{ flex: 1, marginTop: 10 }}>
+              <textarea
+                value={promptText}
+                onChange={(e) => setPromptText(e.target.value)}
+                placeholder="Write your prompt..."
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 8,
+                  padding: 10,
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+                marginTop: 10,
+              }}
+            >
+              <button onClick={() => setIsPromptOpen(false)}>Close</button>
+
+              <button
+                onClick={handleSavePrompt}
+                style={{
+                  background: "#3b82f6",
+                  color: "#fff",
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

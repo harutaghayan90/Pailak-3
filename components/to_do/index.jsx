@@ -23,8 +23,27 @@ export default function ToDoList({ refreshTasks }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-
     return res.json();
+  };
+
+  const fetchPopupPrompt = async () => {
+    try {
+      const res = await fetch(
+        "https://n8n.aghayan.space/webhook/f3f986c2-a524-4c67-a960-02a31c7247da",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get" }),
+        }
+      );
+
+      const data = await res.json();
+      const prompt = data?.prompt || "No data";
+      setPromptText(prompt);
+    } catch (e) {
+      console.error("Failed to fetch AI prompt:", e);
+      setPromptText("No data");
+    }
   };
 
   const toArray = (payload) => {
@@ -185,7 +204,10 @@ export default function ToDoList({ refreshTasks }) {
         <div className="prompt_section">
           <button
             className="prompt_button"
-            onClick={() => setIsPromptOpen(true)}
+            onClick={() => {
+              setIsPromptOpen(true);
+              fetchPopupPrompt(); // ✅ fetch prompt when opening
+            }}
           >
             AI Prompt
           </button>
@@ -198,13 +220,9 @@ export default function ToDoList({ refreshTasks }) {
         </div>
       )}
 
-      {!loading && sections.length === 0 && (
-        <p style={{ margin: 0 }}>No data</p>
-      )}
+      {!loading && sections.length === 0 && <p style={{ margin: 0 }}>No data</p>}
 
-      <div
-        style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 4 }}
-      >
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: 4 }}>
         {!loading &&
           sections.map((section) => (
             <div
@@ -227,27 +245,14 @@ export default function ToDoList({ refreshTasks }) {
               ) : (
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {section.tasks.map((task, index) => (
-                    <li
-                      key={task?.id || `${section.id}-${index}`}
-                      style={{ marginBottom: 6 }}
-                    >
+                    <li key={task?.id || `${section.id}-${index}`} style={{ marginBottom: 6 }}>
                       <div
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                        className={`${
-                          task.status === "completed" ? "line-through" : ""
-                        } hover:scale-[101%] duration-200 cursor-pointer`}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                        className={`${task.status === "completed" ? "line-through" : ""} hover:scale-[101%] duration-200 cursor-pointer`}
                       >
                         <button onClick={() => handleTaskClick(task)}>
-                          {task.status === "open" && (
-                            <CircleIcon className="size-6 text-gray-100" />
-                          )}
-                          {task.status === "completed" && (
-                            <CircleCheckBigIcon className="size-6 text-green-200" />
-                          )}
+                          {task.status === "open" && <CircleIcon className="size-6 text-gray-100" />}
+                          {task.status === "completed" && <CircleCheckBigIcon className="size-6 text-green-200" />}
                         </button>
                         {task?.name || task?.title || "Untitled task"}
                       </div>

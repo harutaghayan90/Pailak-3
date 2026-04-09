@@ -13,7 +13,7 @@ export default function ToDoList({ refreshTasks }) {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Popup state
+  //  Popup state
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [promptText, setPromptText] = useState("");
 
@@ -161,20 +161,27 @@ export default function ToDoList({ refreshTasks }) {
     loadTasksFromDb();
   }, [refreshTasks]);
 
-  // ✅ Save prompt handler
-  const handleSavePrompt = async () => {
-    try {
-      await requestData({
-        action: "ai_prompt",
-        prompt: promptText,
-      });
+  //  Save prompt handler
+const handleSavePrompt = async () => {
+  try {
+    await fetch(
+      "https://n8n.aghayan.space/webhook/f3f986c2-a524-4c67-a960-02a31c7247da",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          prompt: promptText,
+        }),
+      }
+    );
 
-      setIsPromptOpen(false);
-      setPromptText("");
-    } catch (e) {
-      console.error(e);
-    }
-  };
+    setIsPromptOpen(false);
+    setPromptText("");
+  } catch (e) {
+    console.error("Failed to save prompt:", e);
+  }
+};
 
   return (
     <div
@@ -206,7 +213,7 @@ export default function ToDoList({ refreshTasks }) {
             className="prompt_button"
             onClick={() => {
               setIsPromptOpen(true);
-              fetchPopupPrompt(); // ✅ fetch prompt when opening
+              fetchPopupPrompt(); //  fetch prompt when opening
             }}
           >
             AI Prompt
@@ -264,7 +271,7 @@ export default function ToDoList({ refreshTasks }) {
           ))}
       </div>
 
-      {/* ✅ POPUP */}
+      {/*  POPUP */}
       {isPromptOpen && (
         <div
           onClick={() => setIsPromptOpen(false)}
